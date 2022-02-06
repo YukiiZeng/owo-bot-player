@@ -27,59 +27,58 @@ gem_durations = {
 
 global gem_to_use
 global pos
+global gem_sets_used
 
 
-# writes the commands to hunt and battle, adds some varied delay to prevent bot detection
-def write():
-    time.sleep(17 + (random.random() * 15))
-    keyboard.write("owoh")
-    keyboard.press("enter")
-    time.sleep(1 + (random.random() * 3))
-    keyboard.write("owob")
+# writes the given message after the given delay with variance to prevent bot detection
+def write(message, delay, variance):
+    time.sleep(delay + (random.random() * variance))
+    keyboard.write(message)
     keyboard.press("enter")
 
 
-# writes the command to pray, adds some varied delay to prevent bot detection
-def pray():
-    time.sleep(2 + (random.random() * 5))
-    keyboard.write("owopray")
-    keyboard.press("enter")
+# the layout displays how many times the program has hunted and how many gems it's used, will be updated as needed
+def get_hunting_layout():
+    return [[sg.Text(f"Gem sets used: 0", key='used')],
+            [sg.Text("Hunts using this gem set: 0", key='hunted')]]
 
 
-# writes the command to pray, adds some varied delay to prevent bot detection
-def reequip():
-    time.sleep(3 + (random.random() * 2))
-    keyboard.write("owo equip " + gems[gem_to_use])
-    keyboard.press("enter")
+def hunt_battle_pray(num_hunts):
+    write("owoh", 17, 15)
+    write("owob", 1, 3)
+    if num_hunts % 15 == 0:
+        write("owopray", 2, 5)
+
+
+def reequip(window):
+    global gem_sets_used
+    write("owo equip " + gems[gem_to_use], 3, 2)
+    gem_sets_used += 1
+    window['used'].update(value=f"Gem sets used: {gem_sets_used}")
+
+
+def use_gem(hunts, window):
+    events, values = window.read(timeout=1)
+    for x in range(hunts):
+        if events == sg.WIN_CLOSED:
+            exit()
+
+        hunt_battle_pray(x)
+        window['hunted'].update(value=f"Hunts using this gem set: {x + 1}")
+        events, values = window.read(timeout=1)
 
 
 # plays with the discord bot owo: hunting, battling, reequipping gems, and praying
 def play(hunts_left):
-    hunts = hunts_left
+    global gem_sets_used
     find_discord()
+    window = sg.Window("Owo bot player", get_hunting_layout())
+    # finish off the rest of the current gem before using the given gem type
+    use_gem(hunts_left, window)
     gem_sets_used = 0
-    # display how many times the program has hunted so far and how many gems it's used
-    layout = [[sg.Text(f"Gem sets used: {gem_sets_used}", key='used')],
-              [sg.Text("Hunts using this gem set: 0", key='hunted')]]
-    window = sg.Window("Owo bot player", layout)
-    events, values = window.read(timeout=1)
     while True:
-        for x in range(hunts):
-            if events == sg.WIN_CLOSED:
-                exit()
-            write()
-            if x % 15 == 0:
-                pray()
-            window['hunted'].update(value=f"Hunts using this gem set: {x+1}")
-            events, values = window.read(timeout=1)
-
-        reequip()
-        gem_sets_used += 1
-        window['used'].update(value=f"Gem sets used: {gem_sets_used}")
-
-        # after finishing the first gem, set the number of hunts to the duration of the gem to use
-        if hunts != gem_durations[gem_to_use]:
-            hunts = gem_durations[gem_to_use]
+        reequip(window)
+        use_gem(gem_durations[gem_to_use], window)
 
 
 # sets the position of discord's text box
@@ -109,7 +108,7 @@ def handle_not_found():
             window = sg.Window('Select Discord', layout)
             mouse.on_click(lambda: set_pos())
             while pos == [-1, -1]:
-                events, values = window.read(timeout=100)
+                window.read(timeout=100)
             window.close()
             return True
 
@@ -125,9 +124,9 @@ def find_discord():
                 found = True
         else:
             # get the center of the image
-            img = Image.open("discordMessage.PNG")
+            img = Image.open("discordMessage.png")
             xOffset, yOffset = img.size
-            pos = (pos[0] + (xOffset/2), pos[1] + (yOffset/2))
+            pos = (pos[0] + (xOffset / 2), pos[1] + (yOffset / 2))
             found = True
 
     mouse.move(pos[0], pos[1], absolute=True)
